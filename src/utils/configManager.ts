@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
+import http from 'http';
 
 export interface ServiceConfig {
   enabled: boolean;
@@ -57,16 +58,67 @@ class ConfigManager {
         return false;
       }
       
-      // Process the API response and update configuration
-      if (data.configurations) {
-        // Process each service configuration
-        for (const [service, config] of Object.entries(data.configurations)) {
-          if (this.config[service]) {
-            this.config[service] = {
-              ...this.config[service],
-              ...(config as ServiceConfig),
-              enabled: true
+      // Process the API response and update configuration based on integrations
+      if (data.integrations) {
+        const integrations = data.integrations;
+        
+        // Process PostgreSQL connections
+        if (integrations.postgres?.connections?.length > 0) {
+          const primaryConnection = integrations.postgres.connections.find(conn => conn.is_primary === true);
+          if (primaryConnection) {
+            this.config.postgres = {
+              enabled: true,
+              url: this.buildDatabaseUrl('postgres', primaryConnection),
+              options: {
+                connection: primaryConnection
+              }
             };
+            console.log(`Configured primary PostgreSQL connection: ${primaryConnection.name}`);
+          }
+        }
+        
+        // Process MySQL connections
+        if (integrations.mysql?.connections?.length > 0) {
+          const primaryConnection = integrations.mysql.connections.find(conn => conn.is_primary === true);
+          if (primaryConnection) {
+            this.config.mysql = {
+              enabled: true,
+              url: this.buildDatabaseUrl('mysql', primaryConnection),
+              options: {
+                connection: primaryConnection
+              }
+            };
+            console.log(`Configured primary MySQL connection: ${primaryConnection.name}`);
+          }
+        }
+        
+        // Process Redis connections
+        if (integrations.redis?.connections?.length > 0) {
+          const primaryConnection = integrations.redis.connections.find(conn => conn.is_primary === true);
+          if (primaryConnection) {
+            this.config.redis = {
+              enabled: true,
+              url: this.buildDatabaseUrl('redis', primaryConnection),
+              options: {
+                connection: primaryConnection
+              }
+            };
+            console.log(`Configured primary Redis connection: ${primaryConnection.name}`);
+          }
+        }
+        
+        // Process OpenSearch connections
+        if (integrations.opensearch?.connections?.length > 0) {
+          const primaryConnection = integrations.opensearch.connections.find(conn => conn.is_primary === true);
+          if (primaryConnection) {
+            this.config.opensearch = {
+              enabled: true,
+              url: this.buildDatabaseUrl('opensearch', primaryConnection),
+              options: {
+                connection: primaryConnection
+              }
+            };
+            console.log(`Configured primary OpenSearch connection: ${primaryConnection.name}`);
           }
         }
         
@@ -82,19 +134,42 @@ class ConfigManager {
   }
   
   /**
+   * Build database URL from connection info
+   */
+  private buildDatabaseUrl(type: string, connection: any): string {
+    switch (type) {
+      case 'postgres':
+        return `postgresql://${connection.hostname}:${connection.port}/${connection.database}`;
+      case 'mysql':
+        return `mysql://${connection.hostname}:${connection.port}/${connection.database}`;
+      case 'redis':
+        return `redis://${connection.hostname}:${connection.port}/${connection.database}`;
+      case 'opensearch':
+        return `http://${connection.hostname}:${connection.port}`;
+      default:
+        return '';
+    }
+  }
+  
+  /**
    * Make HTTP request to Skeet API
    */
   private makeApiRequest(): Promise<any> {
     return new Promise((resolve, reject) => {
+      // Use user_api_key as a query parameter instead of Authorization header
+      const apiUrl = `${this.skeetApiUrl}?user_api_key=${this.skeetApiKey}`;
+      
       const options = {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${this.skeetApiKey}`,
           'Content-Type': 'application/json'
         }
       };
       
-      const req = https.request(this.skeetApiUrl, options, (res) => {
+      // Determine if we're using http or https
+      const requestModule = this.skeetApiUrl.startsWith('https') ? https : http;
+      
+      const req = requestModule.request(apiUrl, options, (res) => {
         let data = '';
         
         res.on('data', (chunk) => {

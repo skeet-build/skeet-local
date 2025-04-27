@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import { Server } from "@modelcontextprotocol/sdk/server";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
-} from "@modelcontextprotocol/sdk/types";
+} from "@modelcontextprotocol/sdk/types.js";
 import { serviceManager } from "./src/serviceManager.js";
 import { configManager } from "./src/utils/configManager.js";
 
@@ -19,7 +19,7 @@ console.log("-----------------------------------");
 const skeetApiKey = process.env.SKEET_API_KEY;
 if (skeetApiKey) {
   console.log("✅ Skeet API key detected. Will fetch remote configurations from Skeet API.");
-  console.log(`🔗 API URL: ${process.env.SKEET_API_URL || 'https://skeet.sh/api/integrations'}`);
+  console.log(`🔗 API URL: ${process.env.SKEET_API_URL || 'http://localhost:4444/api/integrations'}`);
 } else {
   console.log("⚠️  No Skeet API key found. Running in local-only mode.");
   console.log("   To enable remote configuration, set the SKEET_API_KEY environment variable.");
@@ -39,25 +39,48 @@ const server = new Server(
   }
 );
 
-// Initialize service manager
-console.log("\n🔄 Initializing services...");
-serviceManager.initialize().then(success => {
-  if (success) {
-    const activeServices = serviceManager.getActiveServices();
-    if (activeServices.length > 0) {
-      console.log("✅ Service manager initialized successfully");
-      console.log(`🧰 Available services: ${activeServices.join(', ')}`);
+// Initialize services with configuration
+async function initializeWithConfig() {
+  console.log("\n🔄 Refreshing configurations from Skeet API...");
+  
+  try {
+    // First refresh configurations from all sources including Skeet API
+    const config = await configManager.refreshConfigurations();
+    console.log("✅ Configuration refresh completed");
+    
+    // Log active configurations
+    Object.entries(config).forEach(([service, serviceConfig]) => {
+      if (serviceConfig.enabled) {
+        console.log(`🔌 ${service} enabled: ${serviceConfig.url || 'custom configuration'}`);
+      }
+    });
+    
+    // Then initialize the service manager with the updated configurations
+    console.log("\n🔄 Initializing services...");
+    const success = await serviceManager.initialize();
+    
+    if (success) {
+      const activeServices = serviceManager.getActiveServices();
+      if (activeServices.length > 0) {
+        console.log("✅ Service manager initialized successfully");
+        console.log(`🧰 Available services: ${activeServices.join(', ')}`);
+      } else {
+        console.log("⚠️  No services are currently active.");
+        console.log("   To enable services, configure database URLs via environment variables or Skeet API.");
+      }
     } else {
-      console.log("⚠️  No services are currently active.");
-      console.log("   To enable services, configure database URLs via environment variables or Skeet API.");
+      console.warn("⚠️  Service manager initialization had issues");
     }
-  } else {
-    console.warn("⚠️  Service manager initialization had issues");
+  } catch (error) {
+    console.error("❌ Error initializing services:", error);
   }
   
   console.log("\n📡 MCP Server is now running and ready to handle requests.");
   console.log("-----------------------------------");
-});
+}
+
+// Start initialization process
+initializeWithConfig();
 
 // List all tools from all services
 server.setRequestHandler(ListToolsRequestSchema, async () => {

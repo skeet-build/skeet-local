@@ -10,8 +10,7 @@
     "sourceMap": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": false,
-    "typeRoots": ["./node_modules/@types", "./src/typings"]
+    "noImplicitAny": false
   },
   "include": [
     "index.ts",
