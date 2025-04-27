@@ -1,0 +1,42 @@
+{
+  "name": "@skeetbuild/skeet-local",
+  "version": "0.1.0",
+  "description": "Skeet Local MCP Server with support for multiple database types",
+  "main": "dist/index.js",
+  "bin": {
+    "skeet-local": "dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "skeet",
+    "model-context-protocol",
+    "postgres",
+    "mysql",
+    "redis",
+    "opensearch"
+  ],
+  "author": "Skeet Build",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.10.2",
+    "@opensearch-project/opensearch": "^2.2.0",
+    "mysql2": "^3.6.0",
+    "pg": "^8.11.0",
+    "redis": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.0",
+    "@types/pg": "^8.10.2",
+    "@types/redis": "^4.0.11",
+    "typescript": "^5.0.0"
+  }
+}

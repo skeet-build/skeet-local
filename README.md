@@ -14,6 +14,11 @@ Note that tools will only appear if the configurations have been set.
 
 ### Tools
 
+- **refresh_skeet_tools**
+  - Refreshes the available Skeet tools and configurations
+  - No input required
+  - Use this when you've updated your Skeet configuration or connected new services
+
 - **postgres_query**
   - Execute read-only SQL queries against PostgreSQL databases
   - Input: `sql` (string): The SQL query to execute
