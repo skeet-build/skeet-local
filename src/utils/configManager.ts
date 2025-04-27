@@ -55,6 +55,9 @@ class ConfigManager {
       const data = await this.makeApiRequest();
       
       if (!data) {
+        console.error('\n❌ Failed to fetch configurations from Skeet API.');
+        console.error('Please visit https://skeet.build/dashboard to update your MCP server configurations.');
+        console.error('You can also check your SKEET_API_KEY and SKEET_API_URL environment variables.');
         return false;
       }
       
@@ -124,11 +127,16 @@ class ConfigManager {
         
         console.log('Successfully loaded configuration from Skeet API');
         return true;
+      } else {
+        console.error('\n❌ No integrations found in the API response.');
+        console.error('Please visit https://skeet.build/dashboard to configure your MCP server integrations.');
+        return false;
       }
-      
-      return false;
     } catch (error) {
       console.error('Error fetching configuration from Skeet API:', error);
+      console.error('\n❌ Failed to connect to Skeet API.');
+      console.error('Please visit https://skeet.build/dashboard to verify your MCP server configurations.');
+      console.error('Make sure your SKEET_API_KEY and SKEET_API_URL environment variables are set correctly.');
       return false;
     }
   }
@@ -180,6 +188,8 @@ class ConfigManager {
           if (res.statusCode !== 200) {
             console.error(`API request failed with status code: ${res.statusCode}`);
             console.error(`Response: ${data}`);
+            console.error('\n❌ Failed to authenticate with Skeet API.');
+            console.error('Please visit https://skeet.build/dashboard to verify your API key and settings.');
             return resolve(null);
           }
           
@@ -188,6 +198,8 @@ class ConfigManager {
             resolve(parsedData);
           } catch (error) {
             console.error('Error parsing API response:', error);
+            console.error('\n❌ Received invalid data from Skeet API.');
+            console.error('Please visit https://skeet.build/dashboard to check the status of your account.');
             reject(error);
           }
         });
@@ -195,6 +207,8 @@ class ConfigManager {
       
       req.on('error', (error) => {
         console.error('API request error:', error);
+        console.error('\n❌ Failed to connect to Skeet API server.');
+        console.error('Please check your internet connection and visit https://skeet.build/dashboard to verify the API endpoint.');
         reject(error);
       });
       
@@ -282,19 +296,37 @@ class ConfigManager {
       opensearch: { enabled: false }
     };
     
-    // Priority of configuration sources (highest priority last):
-    // 1. Environment variables
-    // 2. Local config file
-    // 3. Skeet API
-    this.loadFromEnv();
-    this.loadFromFile();
-    await this.fetchFromApi();
-    
-    // Load dynamic services if any exist
-    await this.discoverServices();
-    
-    console.log('Configuration refresh completed');
-    return this.config;
+    try {
+      // Priority of configuration sources (highest priority last):
+      // 1. Environment variables
+      // 2. Local config file
+      // 3. Skeet API
+      this.loadFromEnv();
+      this.loadFromFile();
+      await this.fetchFromApi();
+      
+      // Load dynamic services if any exist
+      await this.discoverServices();
+      
+      console.log('Configuration refresh completed');
+      
+      // Check if any services are enabled
+      const enabledServices = Object.entries(this.config)
+        .filter(([_, config]) => config.enabled)
+        .map(([service]) => service);
+      
+      if (enabledServices.length === 0) {
+        console.warn('\n⚠️ No services were enabled after configuration.');
+        console.warn('Please visit https://skeet.build/dashboard to configure your MCP server integrations,');
+        console.warn('or set environment variables for direct database connections.');
+      }
+      
+      return this.config;
+    } catch (error) {
+      console.error('❌ Failed to refresh configurations:', error);
+      console.error('Please visit https://skeet.build/dashboard to update your MCP server configurations.');
+      return this.config;
+    }
   }
   
   /**
