@@ -7,9 +7,11 @@ import { ServiceConfig } from '../utils/configManager.js';
 export class PostgresService {
   private pool: pg.Pool | null = null;
   private config: ServiceConfig;
+  private connectionDetails: any;
   
   constructor(config: ServiceConfig) {
     this.config = config;
+    this.connectionDetails = config.options?.connection || {};
   }
   
   /**
@@ -17,14 +19,34 @@ export class PostgresService {
    */
   public async initialize(): Promise<boolean> {
     try {
-      if (!this.config.url) {
-        console.error('PostgreSQL URL not provided');
+      // Check if we have connection details
+      if (!this.connectionDetails && !this.config.url) {
+        console.error('PostgreSQL connection information not provided');
         return false;
       }
       
-      this.pool = new pg.Pool({
-        connectionString: this.config.url,
-      });
+      // If we have the dsn from the connection details, use it directly
+      if (this.connectionDetails.dsn) {
+        console.log(`Using direct DSN for PostgreSQL connection: ${this.connectionDetails.name}`);
+        this.pool = new pg.Pool({
+          connectionString: this.connectionDetails.dsn
+        });
+      } else if (this.config.url) {
+        // Otherwise use the URL configured in the service config
+        console.log(`Using URL connection for PostgreSQL: ${this.config.url}`);
+        this.pool = new pg.Pool({
+          connectionString: this.config.url,
+        });
+      } else {
+        console.error('No valid connection configuration for PostgreSQL');
+        return false;
+      }
+      
+      // Make sure we have a pool before attempting to connect
+      if (!this.pool) {
+        console.error('Failed to create PostgreSQL connection pool');
+        return false;
+      }
       
       // Test connection
       const client = await this.pool.connect();

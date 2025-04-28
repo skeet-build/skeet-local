@@ -7,9 +7,11 @@ import { ServiceConfig } from '../utils/configManager.js';
 export class OpenSearchService {
   private client: Client | null = null;
   private config: ServiceConfig;
+  private connectionDetails: any;
   
   constructor(config: ServiceConfig) {
     this.config = config;
+    this.connectionDetails = config.options?.connection || {};
   }
   
   /**
@@ -17,17 +19,40 @@ export class OpenSearchService {
    */
   public async initialize(): Promise<boolean> {
     try {
-      if (!this.config.url) {
-        console.error('OpenSearch URL not provided');
+      // Check if we have connection details
+      if (!this.connectionDetails && !this.config.url) {
+        console.error('OpenSearch connection information not provided');
         return false;
       }
       
-      this.client = new Client({
-        node: this.config.url,
-        ssl: {
-          rejectUnauthorized: false
-        }
-      });
+      // If we have the dsn from the connection details, use it directly
+      if (this.connectionDetails.dsn) {
+        console.log(`Using direct DSN for OpenSearch connection: ${this.connectionDetails.name}`);
+        this.client = new Client({
+          node: this.connectionDetails.dsn,
+          ssl: {
+            rejectUnauthorized: false
+          }
+        });
+      } else if (this.config.url) {
+        // Otherwise use the URL configured in the service config
+        console.log(`Using URL connection for OpenSearch: ${this.config.url}`);
+        this.client = new Client({
+          node: this.config.url,
+          ssl: {
+            rejectUnauthorized: false
+          }
+        });
+      } else {
+        console.error('No valid connection configuration for OpenSearch');
+        return false;
+      }
+      
+      // Make sure we have a client before attempting to connect
+      if (!this.client) {
+        console.error('Failed to create OpenSearch client');
+        return false;
+      }
       
       // Test connection
       await this.client.cat.health();

@@ -71,7 +71,7 @@ class ConfigManager {
           if (primaryConnection) {
             this.config.postgres = {
               enabled: true,
-              url: this.buildDatabaseUrl('postgres', primaryConnection),
+              url: primaryConnection.dsn || '',
               options: {
                 connection: primaryConnection
               }
@@ -86,7 +86,7 @@ class ConfigManager {
           if (primaryConnection) {
             this.config.mysql = {
               enabled: true,
-              url: this.buildDatabaseUrl('mysql', primaryConnection),
+              url: primaryConnection.dsn || '',
               options: {
                 connection: primaryConnection
               }
@@ -101,7 +101,7 @@ class ConfigManager {
           if (primaryConnection) {
             this.config.redis = {
               enabled: true,
-              url: this.buildDatabaseUrl('redis', primaryConnection),
+              url: primaryConnection.dsn || '',
               options: {
                 connection: primaryConnection
               }
@@ -116,7 +116,7 @@ class ConfigManager {
           if (primaryConnection) {
             this.config.opensearch = {
               enabled: true,
-              url: this.buildDatabaseUrl('opensearch', primaryConnection),
+              url: primaryConnection.dsn || '',
               options: {
                 connection: primaryConnection
               }
@@ -143,20 +143,33 @@ class ConfigManager {
   
   /**
    * Build database URL from connection info
+   * Note: This is kept for backward compatibility but no longer used
+   * since we now use the dsn field directly.
    */
   private buildDatabaseUrl(type: string, connection: any): string {
-    switch (type) {
-      case 'postgres':
-        return `postgresql://${connection.hostname}:${connection.port}/${connection.database}`;
-      case 'mysql':
-        return `mysql://${connection.hostname}:${connection.port}/${connection.database}`;
-      case 'redis':
-        return `redis://${connection.hostname}:${connection.port}/${connection.database}`;
-      case 'opensearch':
-        return `http://${connection.hostname}:${connection.port}`;
-      default:
-        return '';
+    // If dsn is available, use it directly
+    if (connection.dsn) {
+      return connection.dsn;
     }
+    
+    // Fallback to building URL from components
+    if (connection.hostname && connection.port && connection.database) {
+      switch (type) {
+        case 'postgres':
+          return `postgresql://${connection.hostname}:${connection.port}/${connection.database}`;
+        case 'mysql':
+          return `mysql://${connection.hostname}:${connection.port}/${connection.database}`;
+        case 'redis':
+          return `redis://${connection.hostname}:${connection.port}/${connection.database}`;
+        case 'opensearch':
+          return `http://${connection.hostname}:${connection.port}`;
+        default:
+          return '';
+      }
+    }
+    
+    console.warn(`No connection details found for ${type} connection`);
+    return '';
   }
   
   /**

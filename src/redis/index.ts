@@ -7,9 +7,11 @@ import { ServiceConfig } from '../utils/configManager.js';
 export class RedisService {
   private client: RedisClientType | null = null;
   private config: ServiceConfig;
+  private connectionDetails: any;
   
   constructor(config: ServiceConfig) {
     this.config = config;
+    this.connectionDetails = config.options?.connection || {};
   }
   
   /**
@@ -17,12 +19,31 @@ export class RedisService {
    */
   public async initialize(): Promise<boolean> {
     try {
-      if (!this.config.url) {
-        console.error('Redis URL not provided');
+      // Check if we have connection details
+      if (!this.connectionDetails && !this.config.url) {
+        console.error('Redis connection information not provided');
         return false;
       }
       
-      this.client = createClient({ url: this.config.url });
+      // If we have the dsn from the connection details, use it directly
+      if (this.connectionDetails.dsn) {
+        console.log(`Using direct DSN for Redis connection: ${this.connectionDetails.name}`);
+        this.client = createClient({ url: this.connectionDetails.dsn });
+      } else if (this.config.url) {
+        // Otherwise use the URL configured in the service config
+        console.log(`Using URL connection for Redis: ${this.config.url}`);
+        this.client = createClient({ url: this.config.url });
+      } else {
+        console.error('No valid connection configuration for Redis');
+        return false;
+      }
+      
+      // Make sure we have a client before attempting to connect
+      if (!this.client) {
+        console.error('Failed to create Redis client');
+        return false;
+      }
+      
       await this.client.connect();
       
       // Test connection

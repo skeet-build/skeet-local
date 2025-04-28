@@ -7,9 +7,11 @@ import { ServiceConfig } from '../utils/configManager.js';
 export class MySqlService {
   private pool: mysql.Pool | null = null;
   private config: ServiceConfig;
+  private connectionDetails: any;
   
   constructor(config: ServiceConfig) {
     this.config = config;
+    this.connectionDetails = config.options?.connection || {};
   }
   
   /**
@@ -17,13 +19,30 @@ export class MySqlService {
    */
   public async initialize(): Promise<boolean> {
     try {
-      if (!this.config.url) {
-        console.error('MySQL URL not provided');
+      // Check if we have connection details
+      if (!this.connectionDetails && !this.config.url) {
+        console.error('MySQL connection information not provided');
         return false;
       }
       
-      // Create connection pool
-      this.pool = mysql.createPool(this.config.url);
+      // If we have the dsn from the connection details, use it directly
+      if (this.connectionDetails.dsn) {
+        console.log(`Using direct DSN for MySQL connection: ${this.connectionDetails.name}`);
+        this.pool = mysql.createPool(this.connectionDetails.dsn);
+      } else if (this.config.url) {
+        // Otherwise use the URL configured in the service config
+        console.log(`Using URL connection for MySQL: ${this.config.url}`);
+        this.pool = mysql.createPool(this.config.url);
+      } else {
+        console.error('No valid connection configuration for MySQL');
+        return false;
+      }
+      
+      // Make sure we have a pool before attempting to connect
+      if (!this.pool) {
+        console.error('Failed to create MySQL connection pool');
+        return false;
+      }
       
       // Test connection
       const connection = await this.pool.getConnection();
